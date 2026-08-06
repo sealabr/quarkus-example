@@ -1,108 +1,108 @@
-# Comparação: Quarkus × Spring Boot
+# Comparação: Quarkus × Spring Boot (API de RH)
 
-Guia rápido para quem já conhece um e está aprendendo o outro.
+Mesmo domínio nos dois módulos: **funcionários**.
 
-## Versões neste repo
+## Mapa de conceitos
 
-| | Quarkus | Spring Boot |
-|--|---------|-------------|
-| Versão | 3.38.1 | 4.1.0 |
-| Java suportado | 17–25 | 17–26 |
-| Java neste módulo | 25 | 26 |
-| DI | CDI (ArC) | Spring IoC |
-| REST | Jakarta REST (Quarkus REST) | Spring MVC |
-| Config | MicroProfile Config | Spring Environment |
-| Dev mode | `mvn quarkus:dev` | `mvn spring-boot:run` / DevTools |
+| Conceito | Quarkus | Spring |
+|----------|---------|--------|
+| REST | `@Path` / `@GET` (Jakarta REST) | `@RestController` / `@GetMapping` |
+| DI | `@ApplicationScoped` + `@Inject` | `@Service` + construtor |
+| Entidade | `@Entity` + `PanacheEntity` | `@Entity` + getters/setters |
+| Repositório | `PanacheRepository` | `JpaRepository` |
+| Transação | `@Transactional` (Jakarta) | `@Transactional` (Spring) |
+| Validação | `@Valid` + Bean Validation | igual |
+| Persistência | Hibernate ORM | Hibernate (Spring Data JPA) |
+| DB local | H2 (`quarkus-jdbc-h2`) | H2 |
 
 ## REST — lado a lado
 
-**Quarkus**
+**Quarkus** (`EmployeeResource`)
 
 ```java
-@Path("/api/greetings")
-@Produces(MediaType.APPLICATION_JSON)
-public class GreetingResource {
+@Path("/api/employees")
+public class EmployeeResource {
 
     @Inject
-    GreetingService greetingService;
+    EmployeeService service;
 
     @GET
-    @Path("/{name}")
-    public GreetingResponse greet(@PathParam("name") String name) {
-        return greetingService.greet(name);
+    public List<EmployeeResponse> list(
+            @QueryParam("department") String department,
+            @QueryParam("active") Boolean active) {
+        return service.list(department, active);
     }
+
+    @POST
+    public Response hire(@Valid EmployeeRequest request) { ... }
 }
 ```
 
-**Spring**
+**Spring** (`EmployeeController`)
 
 ```java
 @RestController
-@RequestMapping("/api/greetings")
-public class GreetingController {
+@RequestMapping("/api/employees")
+public class EmployeeController {
 
-    private final GreetingService greetingService;
+    private final EmployeeService service;
 
-    public GreetingController(GreetingService greetingService) {
-        this.greetingService = greetingService;
+    @GetMapping
+    public List<EmployeeResponse> list(
+            @RequestParam(required = false) String department,
+            @RequestParam(required = false) Boolean active) {
+        return service.list(department, active);
     }
 
-    @GetMapping("/{name}")
-    public GreetingResponse greet(@PathVariable String name) {
-        return greetingService.greet(name);
+    @PostMapping
+    public ResponseEntity<EmployeeResponse> hire(@Valid @RequestBody EmployeeRequest request) { ... }
+}
+```
+
+## Persistência
+
+**Quarkus (Panache)** — campos públicos, queries curtas:
+
+```java
+public class Employee extends PanacheEntity {
+    public String name;
+    public String email;
+    // ...
+}
+
+@ApplicationScoped
+public class EmployeeRepository implements PanacheRepository<Employee> {
+    public Optional<Employee> findByEmail(String email) {
+        return find("email", email).firstResultOptional();
     }
 }
 ```
 
-## Injeção de dependência
-
-| | Quarkus (CDI) | Spring |
-|--|---------------|--------|
-| Bean de app | `@ApplicationScoped` | `@Component` / `@Service` |
-| Injeção | `@Inject` (campo ou construtor) | construtor (preferido) ou `@Autowired` |
-| Escopo request | `@RequestScoped` | `@RequestScope` |
-| Produtor | `@Produces` | `@Bean` |
-
-## Configuração
-
-**Quarkus** — propriedade avulsa:
+**Spring Data** — interface + nomes de método:
 
 ```java
-@ConfigProperty(name = "app.greeting.prefix", defaultValue = "Hello")
-String prefix;
+public interface EmployeeRepository extends JpaRepository<Employee, Long> {
+    Optional<Employee> findByEmail(String email);
+}
 ```
 
-**Spring** — objeto tipado:
+## Regras de negócio (iguais nos dois)
 
-```java
-@ConfigurationProperties(prefix = "app.greeting")
-public record GreetingProperties(String prefix) {}
-```
+1. Contratar com e-mail único  
+2. `hireDate` não futura  
+3. Não atualizar inativo  
+4. Desligamento = `active = false`  
 
-Em Quarkus também existe `@ConfigMapping` para o estilo tipado (semelhante ao Spring).
-
-## Ciclo de vida e build
-
-| | Quarkus | Spring Boot |
-|--|---------|-------------|
-| Build time | Processamento agressivo em build (menos reflexão em runtime) | Autoconfig em runtime (AOT opcional) |
-| Hot reload | Nativo no Dev Mode | Spring DevTools (opcional) |
-| Native | Prioridade do ecossistema (Mandrel/GraalVM) | Suportado via GraalVM + AOT |
-| Ecossistema | Extensões Quarkus + Jakarta / MicroProfile | Starters Spring + vasto ecossistema |
+Isso é o que falta no “Hello World”: **camadas + estado persistido + conflitos HTTP (409/404)**.
 
 ## Quando escolher qual
 
-- **Quarkus:** startup baixo, native image, APIs Jakarta/MicroProfile, Dev Mode forte.
-- **Spring Boot:** ecossistema maduro, documentação vasta, times já Spring, suporte Java 26 neste momento.
+- **Quarkus:** Dev Mode, Panache enxuto, native image, APIs Jakarta.
+- **Spring:** ecossistema Data/Security maduro, times já Spring, Java 26 hoje.
 
-## Comandos úteis
+## Comandos
 
 ```bash
-# Quarkus
 mvn -f quarkus-app quarkus:dev
-mvn -f quarkus-app package
-
-# Spring
 mvn -f spring-app spring-boot:run
-mvn -f spring-app package
 ```

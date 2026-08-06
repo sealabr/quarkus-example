@@ -14,7 +14,7 @@
     <groupId>com.example</groupId>
     <artifactId>spring-app</artifactId>
     <version>1.0.0-SNAPSHOT</version>
-    <name>Spring Boot App</name>
+    <name>Spring Boot App — RH</name>
 
     <properties>
         <!-- Spring Boot 4.1: JDK 17–26. Aqui usamos Java 26. -->
@@ -28,7 +28,16 @@
         </dependency>
         <dependency>
             <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-data-jpa</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-validation</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.h2database</groupId>
+            <artifactId>h2</artifactId>
+            <scope>runtime</scope>
         </dependency>
     </dependencies>
 
